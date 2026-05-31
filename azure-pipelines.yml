@@ -1,0 +1,93 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  workingDir: 'azurerm_resource_group'
+
+stages:
+
+# ================= VALIDATE =================
+- stage: Validate
+
+  jobs:
+  - job: validate
+
+    steps:
+
+    - checkout: self
+
+    # Install Terraform
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
+
+    # Terraform Format
+    - script: |
+        terraform fmt
+      workingDirectory: '$(workingDir)'
+      displayName: "Terraform Format"
+
+    # Terraform Init + Validate
+    - task: AzureCLI@2
+      displayName: "Terraform Init & Validate"
+
+      inputs:
+        azureSubscription: 'azure-devops-arm'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        addSpnToEnvironment: true
+        workingDirectory: '$(workingDir)'
+
+        inlineScript: |
+
+          echo "Azure Login Successful"
+
+          export ARM_CLIENT_ID=$servicePrincipalId
+          export ARM_TENANT_ID=$tenantId
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+          terraform init
+          terraform validate
+
+
+# ================= PLAN =================
+- stage: Plan
+
+  dependsOn: Validate
+
+  jobs:
+  - job: plan
+
+    steps:
+
+    - checkout: self
+
+    # Install Terraform
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
+
+    # Terraform Plan
+    - task: AzureCLI@2
+      displayName: "Terraform Plan"
+
+      inputs:
+        azureSubscription: 'azure-devops-arm'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        addSpnToEnvironment: true
+        workingDirectory: '$(workingDir)'
+
+        inlineScript: |
+
+          echo "Azure Login Successful"
+
+          export ARM_CLIENT_ID=$servicePrincipalId
+          export ARM_TENANT_ID=$tenantId
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+          terraform init
+          terraform plan
